@@ -36,17 +36,4 @@ ela_pipeline.ProcessELA(list_obj_hl=[], list_obj_ignore=[], corr_thres=0.95, cor
 ela_pipeline.CompareELA()
 ```
 
-## Cite Us
 
-When using CEOELA for your research, please cite us as follows:
-
-```bibtex
-@inproceedings{van2019automatic,
-    title={Automatic Configuration of Deep Neural Networks with Parallel Efficient Global Optimization},
-    author={van Stein, Bas and Wang, Hao and B{\"a}ck, Thomas},
-    booktitle={2019 International Joint Conference on Neural Networks (IJCNN)},
-    pages={1--7},
-    year={2019},
-    organization={IEEE}
-}
-```
