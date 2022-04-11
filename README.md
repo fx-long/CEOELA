@@ -37,4 +37,9 @@ ela_pipeline.ProcessELA(list_obj_hl=[], list_obj_ignore=[], corr_thres=0.95, cor
 ela_pipeline.CompareELA()
 ```
 
+## Cite Us
+ 
+When using CEOELA for your research, please cite us as follows:
+
+Fu Xing Long, Bas van Stein, Moritz Frenzel, Peter Krause, Markus Gitterle, and Thomas Bäck. 2022. Learning the Characteristics of Engineering Optimization Problems with Applications in Automotive Crash. In Genetic and Evolutionary Computation Conference (GECCO ’22), July 9–13, 2022, Boston, MA, USA. ACM, New York, NY, USA, 10 pages. https://doi.org/10.1145/3512290.3528712
 
