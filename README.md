@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/480536772.svg)](https://zenodo.org/badge/latestdoi/480536772)
+
 # CEOELA
 Characterizing Engineering Optimization with Exploratory Landscape Analysis (CEOELA) is an automated pipeline developed for characterizing real-world black-box optimization problems based on Benchmarking Black-Box Optimization (BBOB) problem set and artificially generated function set.
 
