@@ -43,7 +43,7 @@ class ELA_pipeline:
     def __init__(self,
                  filepath_excel: str,
                  list_sheetname: list = [],
-                 crash_label: str = '',
+                 instance_label: str = '',
                  filepath_save: str = '',
                  bootstrap_size: float or int = 0.8,
                  bootstrap_repeat: int = 2,
@@ -53,7 +53,7 @@ class ELA_pipeline:
                  BBOB_seed: int = 0,
                  AF_number: int = 1,
                  AF_seed: int = 0,
-                 os_system: str = 'windows',
+                 r_home: str = '',
                  verbose: bool = True,
                  ):
         """
@@ -67,11 +67,11 @@ class ELA_pipeline:
             'KPI': Defining the design and output variables and their respective new labels.
             'Bounds': Defining the upper and lower boundary of design variables.
             At least 1 sheet for DOE data.
-            Use the 'doe_template.xlsx' template as referance.
+            Use the 'DOE_template.xlsx' template as referance.
         list_sheetname: list, optional
             Sheet inside Excel file to be read, by default None.
-        crash_label: str, optional
-            Re-name the crash instance, by default None.
+        instance_label: str, optional
+            Re-name the problem instance, by default None.
         filepath_save: str, optional
             Path to save the output files, by default None.
         bootstrap_size: float or int, optional
@@ -90,8 +90,8 @@ class ELA_pipeline:
             Number of AF to be generated, by default 1 function.
         AF_seed: int, optional
             Random seed to initialize AF generator, by default seed 0.
-        os_system: str, optional
-            Operating system, either 'windows' or 'linux', by default windows.
+        r_home: str, optional
+            Path to R_HOME, by default C:\ProgramData\Anaconda3\envs\rstudio\lib\R.
         verbose: bool, optional
             The verbosity, by default True.
         """
@@ -99,7 +99,7 @@ class ELA_pipeline:
         # basic information
         self.filepath_excel: str = filepath_excel
         self.list_sheetname: list = list_sheetname
-        self.crash_label: str = crash_label if crash_label else 'Instance'
+        self.instance_label: str = instance_label if instance_label else 'Instance'
         self.filepath_save: str = filepath_save
         
         # crash problem instance
@@ -118,7 +118,7 @@ class ELA_pipeline:
         
         # misc
         self.path_dir_base = get_script_dir(follow_symlinks=True, directory='parent')
-        self.os_system: str = os_system
+        self.r_home: str = r_home if r_home else r'C:\ProgramData\Anaconda3\envs\rstudio\lib\R'
         self.verbose: bool = verbose
         
         #%%
@@ -164,16 +164,16 @@ class ELA_pipeline:
         
         # create folder for results
         if (self.filepath_save):
-            self.filepath_save = os.path.join(self.filepath_save, 'results_ELA', self.crash_label)
+            self.filepath_save = os.path.join(self.filepath_save, 'results_ELA', self.instance_label)
         else:
-            self.filepath_save = os.path.join(self.path_dir_base, 'results_ELA', self.crash_label)
+            self.filepath_save = os.path.join(self.path_dir_base, 'results_ELA', self.instance_label)
         if not (os.path.isdir(self.filepath_save)):
             os.makedirs(self.filepath_save)
         # END IF
         
-        # check os system
-        if not ((self.os_system=='windows') or (self.os_system=='linux')):
-            raise ValueError(f'Operating system {self.os_system} is undefined. Use only \'windows\' or \'linux\'.')
+        # check r_home
+        if not (os.path.isdir(self.r_home)):
+            raise ValueError(f'The path R_HOME {self.r_home} is invalid.')
         # END IF
             
         # check boot-strap inputs
@@ -368,7 +368,7 @@ class ELA_pipeline:
         #%%
         # save results
         # crash original
-        filename = self.crash_label + '_crash_original.xlsx'
+        filename = self.instance_label + '_crash_original.xlsx'
         filepath_out = os.path.join(self.filepath_save, filename)
         with pd.ExcelWriter(filepath_out) as writer:
             for i_sheet in self.dict_bs_crash_original.keys():
@@ -377,7 +377,7 @@ class ELA_pipeline:
         # END WITH
         
         # crash rescale
-        filename = self.crash_label + '_crash_rescale.xlsx'
+        filename = self.instance_label + '_crash_rescale.xlsx'
         filepath_out = os.path.join(self.filepath_save, filename)
         with pd.ExcelWriter(filepath_out) as writer:
             for i_sheet in self.dict_bs_crash_rescale.keys():
@@ -386,7 +386,7 @@ class ELA_pipeline:
         # END WITH
         
         # BBOB functions
-        filename = self.crash_label + '_BBOB.xlsx'
+        filename = self.instance_label + '_BBOB.xlsx'
         filepath_out = os.path.join(self.filepath_save, filename)
         with pd.ExcelWriter(filepath_out) as writer:
             for i_sheet in self.dict_BBOB.keys():
@@ -396,7 +396,7 @@ class ELA_pipeline:
         
         # artificial functions
         for i_bs in self.dict_bs_AF.keys():
-            filename = self.crash_label + '_AF_bs_' + str(i_bs) + '.xlsx'
+            filename = self.instance_label + '_AF_bs_' + str(i_bs) + '.xlsx'
             filepath_out = os.path.join(self.filepath_save, filename)
             with pd.ExcelWriter(filepath_out) as writer:
                 self.dict_bs_AF[i_bs].to_excel(writer, sheet_name='bs_'+str(i_bs), index=False)
@@ -408,7 +408,7 @@ class ELA_pipeline:
         self.df_AF_func = self.df_AF_func.T
         self.df_AF_func.reset_index(drop=False, inplace=True)
         self.df_AF_func.rename(columns={'index': 'label', 0: 'func'}, inplace=True)
-        filename = self.crash_label + '_AF_func.xlsx'
+        filename = self.instance_label + '_AF_func.xlsx'
         filepath_out = os.path.join(self.filepath_save, filename)
         self.df_AF_func.to_excel(filepath_out, sheet_name='func', index=False)
         
@@ -445,7 +445,7 @@ class ELA_pipeline:
         # export meta-data for communication between python and R
         dict_meta = {}
         dict_meta['path_dir_base'] = self.path_dir_base
-        dict_meta['crash_label'] = self.crash_label
+        dict_meta['instance_label'] = self.instance_label
         dict_meta['filepath_save'] = self.filepath_save
         dict_meta['list_input'] = self.list_input
         dict_meta['list_output'] = self.list_output_rename
@@ -457,7 +457,6 @@ class ELA_pipeline:
         dict_meta['ELA_crash'] = ELA_crash
         dict_meta['ELA_BBOB'] = ELA_BBOB
         dict_meta['ELA_AF'] = ELA_AF
-        dict_meta['os_system'] = self.os_system
                          
         filename_meta_base = 'ELA_metadata.json'
         filepath_meta = os.path.join(self.path_dir_base, filename_meta_base)
@@ -466,17 +465,13 @@ class ELA_pipeline:
         # END WITH
         
         # execute R script
-        if (self.os_system=='windows'):
-            # Set R_HOME
-            os.environ['R_HOME'] = r"C:\ProgramData\Anaconda3\envs\rstudio\lib\R"
-            import rpy2.robjects as robjects
-            # Defining the R script and loading the instance in Python
-            r = robjects.r
-            r['source']('ELA_compute_ELA.R')
-        else:
-            import subprocess
-            subprocess.call("Rscript --version 4.0.5 ELA_compute_ELA.R", shell=True)
-        # END IF
+        # Set R_HOME
+        os.environ['R_HOME'] = self.r_home
+        import rpy2.robjects as robjects
+        # Defining the R script and loading the instance in Python
+        r = robjects.r
+        r['source']('CEOELA_computeELA.R')
+        
         if (self.verbose):
             print('[ELA] Computation of ELA features done.')
         # END IF
@@ -514,19 +509,19 @@ class ELA_pipeline:
         
         # read ELA results
         # crash original
-        filepath = os.path.join(self.filepath_save, 'featELA_' + self.crash_label + '_crash_original.xlsx')
+        filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_crash_original.xlsx')
         dict_result_crash_orig_base = readFile2Dict(filepath, ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)], 
                                                     list_sheet_type='select', header=0)
         self.df_ELA_crash_original_base = dict2DF(dict_result_crash_orig_base)
         
         # crash re-scale
-        filepath = os.path.join(self.filepath_save, 'featELA_' + self.crash_label + '_crash_rescale.xlsx')
+        filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_crash_rescale.xlsx')
         dict_result_crash_rescale_base = readFile2Dict(filepath, ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)], 
                                                        list_sheet_type='select', header=0)
         self.df_ELA_crash_rescale_base = dict2DF(dict_result_crash_rescale_base)
         
         # BBOB functions
-        filepath = os.path.join(self.filepath_save, 'featELA_' + self.crash_label + '_BBOB.xlsx')
+        filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_BBOB.xlsx')
         dict_result_BBOB_base = readFile2Dict(filepath, ['ins_'+str(ins) for ins in self.BBOB_instance], 
                                               list_sheet_type='select', header=0)
         self.df_ELA_BBOB_base = dict2DF(dict_result_BBOB_base)
@@ -535,7 +530,7 @@ class ELA_pipeline:
         dict_result_AF_base = {}
         for bs in range(self.bootstrap_repeat):
             sheetname = 'bs_' + str(bs+1)
-            filepath = os.path.join(self.filepath_save, 'featELA_' + self.crash_label + '_AF_' + sheetname + '.xlsx')
+            filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_AF_' + sheetname + '.xlsx')
             dict_result_AF_base[sheetname] = readFile2Dict(filepath, [sheetname], list_sheet_type='select', header=0)
         # END FOR
         self.df_ELA_AF_base = dict2DF(dict_result_AF_base)
@@ -584,7 +579,7 @@ class ELA_pipeline:
                         rot_angle=90, label_ha='center', fontsize=8,
                         titel='', 
                         dir_out=self.filepath_save, 
-                        cfigname='plot_cluster_BBOB_' + self.crash_label, 
+                        cfigname='plot_cluster_BBOB_' + self.instance_label, 
                         figformat='.png', 
                         figsize=(6,3), dpi=300, show=False, labels=list(self.df_data_standard_BBOB.index), truncate_mode=None, p=2)
         
@@ -595,7 +590,7 @@ class ELA_pipeline:
                         rot_angle=90, label_ha='center', fontsize=8,
                         titel='', 
                         dir_out=self.filepath_save, 
-                        cfigname='plot_cluster_AF_' + self.crash_label, 
+                        cfigname='plot_cluster_AF_' + self.instance_label, 
                         figformat='.png', 
                         figsize=(140,3), dpi=300, show=False, labels=list(self.df_data_standard_AF.index), truncate_mode=None, p=2)
         if (self.verbose):

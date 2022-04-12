@@ -9,10 +9,6 @@ Characterizing Engineering Optimization with Exploratory Landscape Analysis (CEO
 
 ## Exemplary Use Case
 
-To use this pipeline, you need to prepare an initial DOE, consisting of the x- and y-data of your optimization problem.
-
-In this example we treat the BBOB F1 Sphere function as our real-world optimization problem instance.
-
 ```python
 import os
 from CEOELA.CEOELA import ELA_pipeline

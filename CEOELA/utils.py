@@ -13,7 +13,6 @@ import inspect
 import copy
 import pandas as pd
 import numpy as np
-from sklearn import metrics
 from sklearn.preprocessing import StandardScaler
 from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import dendrogram
@@ -215,7 +214,7 @@ def dataCleaning(df_data,
     if (reset_index):
         df_data_clean.reset_index(drop=True, inplace=True)
         if (verbose):
-            print('Index of dataframe has been reseted.\n')
+            print('Index of dataframe has been reset.\n')
         # END IF
     # END IF
     
