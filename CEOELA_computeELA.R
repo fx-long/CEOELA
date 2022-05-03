@@ -2,7 +2,7 @@
 ##########################
 # START
 ##########################
-print(paste("ELA is running...", sep=""))
+print(paste("[CEOELA] ELA computation starts.", sep=""))
 
 # deactivate warning
 options(warn=-1)
@@ -56,7 +56,7 @@ bootstrap_repeat <- json_data$bootstrap_repeat
 BBOB_func <- json_data$BBOB_func
 BBOB_instance <- json_data$BBOB_instance
 AF_number <- json_data$AF_number
-ELA_crash <- json_data$ELA_crash
+ELA_instance <- json_data$ELA_instance
 ELA_BBOB <- json_data$ELA_BBOB
 ELA_AF <- json_data$ELA_AF
 
@@ -121,7 +121,7 @@ func_extract_LA_feat <- function(data, list_dv, list_obj, list_ELA){
     } else {
       df_feature <- cbind(df_feature, df_feature_main[col_name])
     }
-    print(paste("Objective ", col_name, " done!", sep=""))
+    print(paste("[CEOELA] Objective ", col_name, " done!", sep=""))
   } # END FOR
   return(df_feature)
 } # END FUNCTION
@@ -134,7 +134,7 @@ func_extract_LA_feat <- function(data, list_dv, list_obj, list_ELA){
 ##########################
 # Base function to call ELA function
 func_base <- function(prob_type, list_sheet, list_input, list_obj, list_ELA){
-  print(paste("ELA ", prob_type, " is running...", sep=""))
+  print(paste("[CEOELA] ELA ", prob_type, " is running...", sep=""))
   
   if (all(prob_type=="AF")){ # artificial functions
     for (sheet_i in 1:length(list_sheet)){
@@ -151,7 +151,7 @@ func_base <- function(prob_type, list_sheet, list_input, list_obj, list_ELA){
       writeData(wb, sheetname_temp, df_feature, startRow=1, startCol=1)
       filename_temp <- paste(filepath_save, path_split, "featELA_", instance_label, "_", prob_type, '_', sheetname_temp, ".xlsx", sep='')
       saveWorkbook(wb, file=filename_temp, overwrite=TRUE)
-      print(paste("Sheet ", sheetname_temp, " done!", sep=""))
+      print(paste("[CEOELA] Sheet ", sheetname_temp, " done!", sep=""))
     }
     
   } else { # crash and BBOB
@@ -168,12 +168,12 @@ func_base <- function(prob_type, list_sheet, list_input, list_obj, list_ELA){
       # save results
       addWorksheet(wb, sheetname_temp)
       writeData(wb, sheetname_temp, df_feature, startRow=1, startCol=1)
-      print(paste("Sheet ", sheetname_temp, " done!", sep=""))
+      print(paste("[CEOELA] Sheet ", sheetname_temp, " done!", sep=""))
     }
     filename_temp <- paste(filepath_save, path_split, "featELA_", instance_label, "_", prob_type, ".xlsx", sep='')
     saveWorkbook(wb, file=filename_temp, overwrite=TRUE)
   } # END IF
-  print(paste("ELA ", prob_type, " ", instance_label, " done.", sep=""))
+  print(paste("[CEOELA] ELA ", prob_type, " ", instance_label, " done.", sep=""))
 } # END DEF
 
 
@@ -181,18 +181,18 @@ func_base <- function(prob_type, list_sheet, list_input, list_obj, list_ELA){
 
 
 ##########################
-# Crash (original)
+# Instance (original)
 ########################## 
-if (ELA_crash) {
+if (ELA_instance) {
   func_base('crash_original', bootstrap_repeat, list_input, list_output, list_feature_crash)
 } # END IF
 
 
 
 ##########################
-# Crash (re-scale)
+# Instance (re-scale)
 ########################## 
-if (ELA_crash) {
+if (ELA_instance & ELA_BBOB) {
   func_base('crash_rescale', bootstrap_repeat, list_input, list_output, list_feature_crash)
 } # END IF
 
@@ -222,7 +222,7 @@ if (ELA_AF) {
 ##########################
 # END
 ##########################
-print(paste("ELA is finished!", sep=""))
+print(paste("[CEOELA] ELA computation done!", sep=""))
 
 
 
