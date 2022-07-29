@@ -63,3 +63,7 @@ Fu Xing Long, Bas van Stein, Moritz Frenzel, Peter Krause, Markus Gitterle, and 
 ## Contact
 
 If you have any suggestions or ideas, or if you encounter any problems while running the code, please use the issue tracker or send me an e-mail (f.x.long@liacs.leidenuniv.nl).
+
+## Reference
+* Tian, Y., Peng, S., Zhang, X., Rodemann, T., Tan, K. C., & Jin, Y. (2020). A recommender system for metaheuristic algorithms for continuous optimization based on deep recurrent neural networks. IEEE Transactions on Artificial Intelligence, 1(1), 5-18.
+* Kerschke, P., & Dagefoerde, J. (2017). flacco: Feature-based landscape analysis of continuous and constrained optimization problems. R-package version, 1.
