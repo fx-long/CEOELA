@@ -17,41 +17,43 @@ In this example we treat the BBOB F1 Sphere function as our real-world optimizat
 
 ```python
 import os
-from CEOELA.CEOELA import ELA_pipeline
+from CEOELA.CEOELA import CEOELA_pipeline
 
 
 # define path
 filepath_excel = os.path.join(os.getcwd(), r'CEOELA\DOE_example.xlsx')
 
 # initliaze
-ela_pipeline = ELA_pipeline(filepath_excel = filepath_excel,
-                            list_sheetname = [],
-                            instance_label = 'result_example',
-                            filepath_save = '',
-                            bootstrap_size = 0.8,
-                            bootstrap_repeat = 2,
-                            bootstrap_seed = 0,
-                            BBOB_func = ['F1'], 
-                            BBOB_instance = [1],
-                            BBOB_seed = 0,
-                            AF_number = 2,
-                            AF_seed = 0,
-                            r_home = r'C:\ProgramData\Anaconda3\envs\rstudio\lib\R',
-                            verbose = True
-                            )
-
+ceoela_pipeline = CEOELA_pipeline(filepath_excel,
+                                  list_sheetname = [],
+                                  problem_label = 'result_example',
+                                  filepath_save = '',
+                                  bootstrap = True,
+                                  bootstrap_size = 0.8,
+                                  bootstrap_repeat = 2,
+                                  bootstrap_seed = 0,
+                                  BBOB_func = ['F1'],
+                                  BBOB_instance = [1],
+                                  BBOB_seed = 0,
+                                  AF_number = 2,
+                                  AF_seed = 0,
+                                  np_ela = 1,
+                                  os_system = 'windows',
+                                  purge = True,
+                                  verbose = True,
+                                  )
 
 # data pre-processing
-ela_pipeline.DataPreProcess()
+ceoela_pipeline.DataPreProcess()
 
 # computation of ELA features
-ela_pipeline.ComputeELA(ELA_crash=True, ELA_BBOB=True, ELA_AF=True)
+ceoela_pipeline.ComputeELA(ELA_problem=True, ELA_BBOB=True, ELA_AF=True)
 
 # processing of ELA features
-ela_pipeline.ProcessELA(list_obj_hl=[], list_obj_ignore=[], corr_thres=0.95, corr_ignore=[])
+ceoela_pipeline.ProcessELA(list_obj_hl=[], list_obj_ignore=[], corr_thres=0.95, corr_ignore=[])
 
 # comparison of ELA features
-ela_pipeline.CompareELA()
+ceoela_pipeline.CompareELA()
 ```
 
 ## Citation
