@@ -13,11 +13,15 @@ import inspect
 import copy
 import pandas as pd
 import numpy as np
+from tempfile import mkstemp
+from shutil import move, copymode
+from os import fdopen
 from sklearn.preprocessing import StandardScaler
 from scipy.cluster.hierarchy import linkage
 from scipy.cluster.hierarchy import dendrogram
 import matplotlib.pyplot as plt
 from matplotlib.font_manager import FontProperties
+from multiprocessing import Pool, cpu_count
 
 
 
@@ -543,7 +547,7 @@ def dict2DF(dict_main):
 #%%
 ##################################
 '''
-# Function Flatten Linkage Matrix
+# Function Get Similar Function from Clusters
 '''
 ##################################
 
@@ -565,23 +569,37 @@ def flat_linkageMat(row_clusters, labels, id_item):
             # if it isn't, add the label to this cluster
             else:
                 this_clust.append(glob)
-            # END IF
         # END FOR
                 
         if (id_item in this_clust):
             if (list_clust):
                 if (len(list_clust) > len(this_clust)):
                     list_clust = this_clust
-                # END IF
             else:
                 list_clust = this_clust
-            # END IF
-        # END IF
         clusters[cluster_n] = this_clust
     # END FOR
-    list_clust_hl = [labels[int(clust)] for clust in list_clust]
-    return clusters, list_clust_hl
+    list_clust = [int(i) for i in list_clust]
+    return clusters, list_clust
 # END FUNCTION
+
+def get_similar_func(linkage_matrix, df_standard, list_func):
+    dict_func = {}
+    df_data = copy.deepcopy(df_standard)
+    df_data.reset_index(drop=False, inplace=True)
+    for func in list_func:
+        id_item = df_data.index[df_data['label'] == func].tolist()[0]
+        clusters, list_clust = flat_linkageMat(linkage_matrix, list(df_data.index), id_item)
+        list_clust.remove(id_item)
+        list_label = []
+        for item in list_clust:
+            list_label.append(df_data.iloc[item]['label'])
+        dict_func[func] = list_label
+    # END FOR
+    return dict_func
+# END FUNCTION
+
+
 
 
 
@@ -633,19 +651,7 @@ def create_linkageMat(list_df, list_obj_hl=[], list_obj_ignore=[], corr_thres=0.
     # calculate linkage matrix
     linkage_matrix = linkage(df_data_standard, method='ward', metric='euclidean')
     
-    # flatten linkage matrix
-    # TODO: check highlight label without repeating flattening whole dict_cluster
-    dict_cluster = dict_hl = {}
-    if (list_obj_hl):
-        for obj_hl in list_obj_hl:
-            list_id = list(df_data_standard.index)
-            id_temp = list_id.index(obj_hl)
-            dict_cluster, list_hl = flat_linkageMat(linkage_matrix, list_id, id_temp)
-            dict_hl[obj_hl] = list_hl
-        # END FOR
-    # END IF
-    
-    return linkage_matrix, dict_cluster, dict_hl, df_data_standard, df_data_cluster
+    return linkage_matrix, df_data_standard, df_data_cluster
 # END FUNCTION
 
 
@@ -703,6 +709,117 @@ def plot_dendrogram(linkage_matrix, xlabel='', ylabel='', rot_angle=None, label_
 
 
 
+#%%
+##################################
+'''
+# Function Create R-script
+'''
+##################################
+
+#%%
+def create_Rscript(filepath_base, filepath_new, os_system='windows'):
+    # create temporary file
+    fh, abs_path = mkstemp()
+    with fdopen(fh,'w') as new_file:
+        with open(filepath_base) as old_file:
+            if (os_system == 'windows'):
+                new_file.write('\nenv_windows <- TRUE\n')
+                new_file.write('\npath_split <- "'"\\\\"'"\n')
+            elif (os_system == 'linux'):
+                new_file.write('\n.libPaths(c("/proj/cae_muc/q521100/83_Miniconda/r4.0.5/library/", .libPaths()))\n')
+                new_file.write('\nenv_windows <- FALSE\n')
+                new_file.write('\npath_split <- "'"/"'"\n')
+            for line in old_file:
+                new_file.write(line)
+            # END FOR
+        # END WITH
+    # END WITH
+    copymode(filepath_base, abs_path)
+    move(abs_path, filepath_new)
+# END FUNCTION
+
+
+
+
+
+
+
+#%%
+##################################
+'''
+# Function Save Similar Functions in Clusters
+'''
+##################################
+
+#%%
+def write_similarF(filepath_save, dict_similarF, problem_label, type_func, filepath_AF_func):
+    filename = 'similarF_' + problem_label + f'_{type_func}.xlsx'
+    filepath_out = os.path.join(filepath_save, filename)
+    
+    if (type_func == 'BBOB'):
+        with pd.ExcelWriter(filepath_out) as writer:
+            for key in dict_similarF.keys():
+                df_temp = pd.DataFrame({f'similar {type_func}': dict_similarF[key]})
+                df_temp.to_excel(writer, sheet_name=key, index=False)
+    
+    elif (type_func == 'AF'):
+        df_AF_func = pd.read_excel(filepath_AF_func, sheet_name='func')
+        with pd.ExcelWriter(filepath_out) as writer:
+            for key in dict_similarF.keys():
+                list_func = []
+                for item in dict_similarF[key]:
+                    if ('AF_' in item):
+                        list_func.append(df_AF_func.iloc[df_AF_func[df_AF_func['label'] == item].index.tolist()[0]]['func'])
+                    else:
+                        list_func.append('')
+                df_temp = pd.DataFrame({f'similar {type_func}': dict_similarF[key],
+                                        'func': list_func})
+                df_temp.to_excel(writer, sheet_name=key, index=False)
+    else:
+        raise ValueError(f'{type_func} is not defined.')
+    # END IF
+# END FUNCTION
+
+
+
+
+
+
+
+#%%
+##################################
+'''
+# Function Parallel Computing
+'''
+##################################
+
+#%%
+def runParallelFunction(runFunction, arguments):
+    """
+        Return the output of runFunction for each set of arguments,
+        making use of as much parallelization as possible on this system
+
+        :param runFunction: The function that can be executed in parallel
+        :param arguments:   List of tuples, where each tuple are the arguments
+                            to pass to the function
+        :return:
+    """
+    arguments = list(arguments)
+    p = Pool(min(cpu_count(), len(arguments)))
+    results = p.map(runFunction, arguments)
+    p.close()
+    return results
+# END FUNCTION
+
+def write_bs_AF(filepath_save, problem_label, i_bs, dict_bs_AF):
+    filename = problem_label + '_AF_bs_' + str(i_bs) + '.xlsx'
+    filepath_out = os.path.join(filepath_save, filename)
+    dict_bs_AF[i_bs].to_excel(filepath_out, sheet_name='bs_'+str(i_bs), index=False)
+# END FUNCTION
+                    
+                    
+                    
+                    
 #%%
 
 

@@ -11,11 +11,14 @@ import copy
 import random
 import math
 import json
+import shutil
 import pandas as pd
 import numpy as np
+from itertools import product
 
 from sklearn.utils import resample
-from .utils import get_script_dir, data_rescaling, readFile2Dict, dict2DF, create_linkageMat, plot_dendrogram
+from .utils import (get_script_dir, data_rescaling, readFile2Dict, dict2DF, create_linkageMat, plot_dendrogram, create_Rscript, 
+                    get_similar_func, write_similarF, write_bs_AF)
 from . import bbobbenchmarks as bbob
 from .modulesRandFunc import generate_tree as genTree
 from .modulesRandFunc import generate_tree2exp as genTree2exp
@@ -30,6 +33,7 @@ __authors__ = ["Fu Xing Long"]
 
 
 
+
 #%%
 ##################################
 '''
@@ -38,13 +42,14 @@ __authors__ = ["Fu Xing Long"]
 ##################################
 
 #%%
-# Initialize a class for ELA pipeline
-class ELA_pipeline:
+# Initialize a class for CEOELA pipeline
+class CEOELA_pipeline:
     def __init__(self,
                  filepath_excel: str,
                  list_sheetname: list = [],
-                 instance_label: str = '',
+                 problem_label: str = '',
                  filepath_save: str = '',
+                 bootstrap: bool = True,
                  bootstrap_size: float or int = 0.8,
                  bootstrap_repeat: int = 2,
                  bootstrap_seed: int = 0,
@@ -53,7 +58,9 @@ class ELA_pipeline:
                  BBOB_seed: int = 0,
                  AF_number: int = 1,
                  AF_seed: int = 0,
-                 r_home: str = '',
+                 np_ela: int = 1,
+                 os_system: str = 'windows',
+                 purge: bool = False,
                  verbose: bool = True,
                  ):
         """
@@ -70,10 +77,12 @@ class ELA_pipeline:
             Use the 'DOE_template.xlsx' template as referance.
         list_sheetname: list, optional
             Sheet inside Excel file to be read, by default None.
-        instance_label: str, optional
+        problem_label: str, optional
             Re-name the problem instance, by default None.
         filepath_save: str, optional
             Path to save the output files, by default None.
+        bootstrap: bool, optional
+            Compute the ELA features in bootstrapping manner, by default True.
         bootstrap_size: float or int, optional
             Bootstrap size, by default 80% of the original sample size.
         bootstrap_repeat: int, optional
@@ -90,8 +99,12 @@ class ELA_pipeline:
             Number of AF to be generated, by default 1 function.
         AF_seed: int, optional
             Random seed to initialize AF generator, by default seed 0.
-        r_home: str, optional
-            Path to R_HOME, by default C:\ProgramData\Anaconda3\envs\rstudio\lib\R.
+        np_ela: int, optional
+            Number of processor for multiprocessing of ELA computation, by default 1. (works only in Lunix)
+        os_system: str, optional
+            Operating system, either 'windows' or 'linux', by default windows.
+        purge: bool, optional
+            Remove previous result directory, by default False.
         verbose: bool, optional
             The verbosity, by default True.
         """
@@ -99,10 +112,12 @@ class ELA_pipeline:
         # basic information
         self.filepath_excel: str = filepath_excel
         self.list_sheetname: list = list_sheetname
-        self.instance_label: str = instance_label if instance_label else 'Instance'
+        self.problem_label: str = problem_label if problem_label else 'Problem'
         self.filepath_save: str = filepath_save
+        self.purge: bool = purge
         
-        # crash problem instance
+        # problem instance
+        self.bootstrap: bool = bootstrap
         self.bootstrap_size: float or int = bootstrap_size
         self.bootstrap_repeat: int = bootstrap_repeat
         self.bootstrap_seed: int = bootstrap_seed
@@ -117,8 +132,9 @@ class ELA_pipeline:
         self.AF_seed: int = AF_seed
         
         # misc
+        self.np_ela: int = np_ela
         self.path_dir_base = get_script_dir(follow_symlinks=True, directory='parent')
-        self.r_home: str = r_home if r_home else r'C:\ProgramData\Anaconda3\envs\rstudio\lib\R'
+        self.os_system: str = os_system
         self.verbose: bool = verbose
         
         #%%
@@ -191,29 +207,52 @@ class ELA_pipeline:
         
         # create folder for results
         if (self.filepath_save):
-            self.filepath_save = os.path.join(self.filepath_save, 'results_ELA', self.instance_label)
+            self.filepath_save = os.path.join(self.filepath_save, 'CEOELA_results', self.problem_label)
         else:
-            self.filepath_save = os.path.join(self.path_dir_base, 'results_ELA', self.instance_label)
+            self.filepath_save = os.path.join(self.path_dir_base, 'CEOELA_results', self.problem_label)
+        if (self.purge and os.path.isdir(self.filepath_save)):
+            shutil.rmtree(self.filepath_save)
         if not (os.path.isdir(self.filepath_save)):
             os.makedirs(self.filepath_save)
         # END IF
         
-        # check r_home
-        if not (os.path.isdir(self.r_home)):
-            raise ValueError(f'The path R_HOME {self.r_home} is invalid.')
+        # check os system
+        if not ((self.os_system=='windows') or (self.os_system=='linux')):
+            raise ValueError(f'Operating system {self.os_system} is undefined. Use only \'windows\' or \'linux\'.')
         # END IF
             
         # check boot-strap inputs
-        if (type(self.bootstrap_size) is float):
-            if ((self.bootstrap_size <= 0.0) or (self.bootstrap_size >= 1.0)):
-                raise ValueError('Boostrap size float must be between 0 and 1.')
+        if (self.bootstrap):
+            if (type(self.bootstrap_size) is float):
+                if ((self.bootstrap_size <= 0.0) or (self.bootstrap_size >= 1.0)):
+                    raise ValueError('Boostrap size float must be between 0 and 1.')
+                # END IF
+            else:
+                if (self.bootstrap_size <= 0):
+                    raise ValueError('Boostrap size int must be non-zero and positive.')
+                if (self.bootstrap_size >= len(self.df_data_main)):
+                    raise ValueError('Boostrap size int must be smaller than total sample size.')
+                # END IF
             # END IF
-        else:
-            if (self.bootstrap_size <= 0):
-                raise ValueError('Boostrap size int must be non-zero and positive.')
-            if (self.bootstrap_size > len(self.df_data_main)):
-                raise ValueError('Boostrap size int must be smaller than total sample size.')
-            # END IF
+        # END IF
+        
+        # check number of processor
+        if (self.os_system=='windows'):
+            self.np_ela = 1
+        if (self.np_ela < 1):
+            raise ValueError('Number of processor must be at least 1.')
+        # END IF
+        
+        # set-up R-script
+        filepath_base = os.path.join(self.path_dir_base, 'CEOELA', 'CEOELA_computeELA_base.R')
+        filepath_new = os.path.join(self.path_dir_base, 'CEOELA_computeELA.R')
+        if not (os.path.isfile(filepath_base)):
+            raise ValueError(f'R-script {filepath_base} is missing.')
+        if (os.path.isfile(filepath_new)):
+            os.remove(filepath_new)
+        create_Rscript(filepath_base, filepath_new, os_system=self.os_system)
+        if (self.verbose):
+            print('[CEOELA] R-script is created.')
         # END IF
         
         #%%
@@ -272,8 +311,8 @@ class ELA_pipeline:
         for output, output_rename in zip(self.list_output, self.list_output_rename):
             self.df_data_filter.rename(columns={output: output_rename}, inplace=True)
         if (self.verbose):
-            print(f'[CEOELA] Input variables re-named to {self.list_input_rename}.')
-            print(f'[CEOELA] Output responses re-named to {self.list_output_rename}.')
+            print(f'[CEOELA] Total {len(self.list_input_rename)} input variables re-named to {self.list_input_rename}.')
+            print(f'[CEOELA] Total {len(self.list_output_rename)} output responses re-named to {self.list_output_rename}.')
         self.df_data_filter = self.df_data_filter.astype(float)
         
         #%%
@@ -320,7 +359,7 @@ class ELA_pipeline:
         #%%
         # generate artificial functions
         np.seterr(all='ignore')
-        i_AF_seed = 0 + self.AF_seed
+        i_AF_seed = self.AF_seed
         i_run = 0
         i_fail = 0
         i_invalid = 0
@@ -369,57 +408,48 @@ class ELA_pipeline:
         
         #%%
         # bootstrapping
-        if (type(self.bootstrap_size) is int):
-            num_sample = self.bootstrap_size
-        else:
-            num_sample = int(math.ceil(len(self.df_data_filter) * self.bootstrap_size))
-        # END IF
         self.dict_bs_crash_original = {}
         self.dict_bs_crash_rescale = {}
         self.dict_bs_AF = {}
-        for i_bs in range(self.bootstrap_repeat):
-            i_bs_seed = i_bs + self.bootstrap_seed
-            # crash original
-            df_bs_crash_orig = resample(self.df_data_filter, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
-            df_bs_crash_orig.reset_index(drop=True, inplace=True)
-            self.dict_bs_crash_original[str(i_bs+1)] = df_bs_crash_orig
-            
-            # crash rescale
-            df_bs_crash_rescale = resample(self.df_data_rescale, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
-            df_bs_crash_rescale.reset_index(drop=True, inplace=True)
-            self.dict_bs_crash_rescale[str(i_bs+1)] = df_bs_crash_rescale
-            
-            # AF
-            df_bs_AF = resample(self.df_AF, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
-            df_bs_AF.reset_index(drop=True, inplace=True)
-            self.dict_bs_AF[str(i_bs+1)] = df_bs_AF
-        # END FOR
-        if (self.verbose):
-            print(f'[CEOELA] Boot-strapping size {self.bootstrap_size} and repitition {self.bootstrap_repeat} done.')
-        # END IF
+        if (self.bootstrap):
+            if (type(self.bootstrap_size) is int):
+                num_sample = self.bootstrap_size
+            else:
+                num_sample = int(math.ceil(len(self.df_data_filter) * self.bootstrap_size))
+            # END IF
+            for i_bs in range(self.bootstrap_repeat):
+                i_bs_seed = i_bs + self.bootstrap_seed
+                # crash original
+                df_bs_crash_orig = resample(self.df_data_filter, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
+                df_bs_crash_orig.reset_index(drop=True, inplace=True)
+                self.dict_bs_crash_original[str(i_bs+1)] = df_bs_crash_orig
+                
+                # crash rescale
+                df_bs_crash_rescale = resample(self.df_data_rescale, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
+                df_bs_crash_rescale.reset_index(drop=True, inplace=True)
+                self.dict_bs_crash_rescale[str(i_bs+1)] = df_bs_crash_rescale
+                
+                # AF
+                df_bs_AF = resample(self.df_AF, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
+                df_bs_AF.reset_index(drop=True, inplace=True)
+                self.dict_bs_AF[str(i_bs+1)] = df_bs_AF
+            # END FOR
+            if (self.verbose):
+                print(f'[CEOELA] Boot-strapping size {self.bootstrap_size} and repitition {self.bootstrap_repeat} done.')
+            # END IF
+        else:
+            self.dict_bs_crash_original['full'] = self.df_data_filter
+            self.dict_bs_crash_rescale['full'] = self.df_data_rescale
+            self.dict_bs_AF['full'] = self.df_AF
+            if (self.verbose):
+                print('[CEOELA] Compute ELA with full data. Boot-strapping is deactivated.')
+            # END IF
+        # END IF            
         
         #%%
         # save results
-        # crash original
-        filename = self.instance_label + '_crash_original.xlsx'
-        filepath_out = os.path.join(self.filepath_save, filename)
-        with pd.ExcelWriter(filepath_out) as writer:
-            for i_sheet in self.dict_bs_crash_original.keys():
-                self.dict_bs_crash_original[i_sheet].to_excel(writer, sheet_name='bs_'+i_sheet, index=False)
-            # END FOR
-        # END WITH
-        
-        # crash rescale
-        filename = self.instance_label + '_crash_rescale.xlsx'
-        filepath_out = os.path.join(self.filepath_save, filename)
-        with pd.ExcelWriter(filepath_out) as writer:
-            for i_sheet in self.dict_bs_crash_rescale.keys():
-                self.dict_bs_crash_rescale[i_sheet].to_excel(writer, sheet_name='bs_'+i_sheet, index=False)
-            # END FOR
-        # END WITH
-        
         # BBOB functions
-        filename = self.instance_label + '_BBOB.xlsx'
+        filename = self.problem_label + '_BBOB.xlsx'
         filepath_out = os.path.join(self.filepath_save, filename)
         with pd.ExcelWriter(filepath_out) as writer:
             for i_sheet in self.dict_BBOB.keys():
@@ -427,21 +457,52 @@ class ELA_pipeline:
             # END FOR
         # END WITH
         
-        # artificial functions
-        for i_bs in self.dict_bs_AF.keys():
-            filename = self.instance_label + '_AF_bs_' + str(i_bs) + '.xlsx'
+        if (self.bootstrap):
+            # problem instance (original)
+            filename = self.problem_label + '_original.xlsx'
             filepath_out = os.path.join(self.filepath_save, filename)
             with pd.ExcelWriter(filepath_out) as writer:
-                self.dict_bs_AF[i_bs].to_excel(writer, sheet_name='bs_'+str(i_bs), index=False)
-            # END WITH
-        # END FOR
+                for i_sheet in self.dict_bs_crash_original.keys():
+                    self.dict_bs_crash_original[i_sheet].to_excel(writer, sheet_name='bs_'+i_sheet, index=False)
+            
+            # problem instance (re-scale)
+            filename = self.problem_label + '_rescale.xlsx'
+            filepath_out = os.path.join(self.filepath_save, filename)
+            with pd.ExcelWriter(filepath_out) as writer:
+                for i_sheet in self.dict_bs_crash_rescale.keys():
+                    self.dict_bs_crash_rescale[i_sheet].to_excel(writer, sheet_name='bs_'+i_sheet, index=False)
+            
+            # artificial functions    
+            # TODO: parallel computing
+            for i_bs in self.dict_bs_AF.keys():
+                write_bs_AF(self.filepath_save, self.problem_label, i_bs, self.dict_bs_AF)
+            # END FOR  
+        else:
+            # problem instance (original)
+            filename = self.problem_label + '_original.xlsx'
+            filepath_out = os.path.join(self.filepath_save, filename)
+            with pd.ExcelWriter(filepath_out) as writer:
+                self.dict_bs_crash_original['full'].to_excel(writer, sheet_name='full', index=False)
+            
+            # problem instance (re-scale)
+            filename = self.problem_label + '_rescale.xlsx'
+            filepath_out = os.path.join(self.filepath_save, filename)
+            with pd.ExcelWriter(filepath_out) as writer:
+                self.dict_bs_crash_rescale['full'].to_excel(writer, sheet_name='full', index=False)
+            
+            # artificial functions
+            filename = self.problem_label + '_AF.xlsx'
+            filepath_out = os.path.join(self.filepath_save, filename)
+            with pd.ExcelWriter(filepath_out) as writer:
+                self.dict_bs_AF['full'].to_excel(writer, sheet_name='full', index=False)
+        # END IF            
         
         # save AF expression
         self.df_AF_func = pd.DataFrame.from_dict(self.dict_AF_func)
         self.df_AF_func = self.df_AF_func.T
         self.df_AF_func.reset_index(drop=False, inplace=True)
         self.df_AF_func.rename(columns={'index': 'label', 0: 'func'}, inplace=True)
-        filename = self.instance_label + '_AF_func.xlsx'
+        filename = self.problem_label + '_AF_func.xlsx'
         filepath_out = os.path.join(self.filepath_save, filename)
         self.df_AF_func.to_excel(filepath_out, sheet_name='func', index=False)
         
@@ -463,7 +524,7 @@ class ELA_pipeline:
     
     #%%
     def ComputeELA(self, 
-                   ELA_instance: bool = True, 
+                   ELA_problem: bool = True, 
                    ELA_BBOB: bool = True, 
                    ELA_AF: bool = True):
         """
@@ -471,7 +532,7 @@ class ELA_pipeline:
         ----------
         Parameters
         ----------
-        ELA_instance: bool, optional
+        ELA_problem: bool, optional
             Compute ELA features on problem instances, by default True.
         ELA_BBOB: bool, optional
             Compute ELA features on BBOB functions, by default True.
@@ -479,39 +540,47 @@ class ELA_pipeline:
             Compute ELA features on artificial functions, by default True.
         """
         # initialize
-        self.ELA_instance: bool = ELA_instance
+        self.ELA_problem: bool = ELA_problem
         self.ELA_BBOB: bool = ELA_BBOB
         self.ELA_AF: bool = ELA_AF
         
         # export meta-data for communication between python and R
         dict_meta = {}
         dict_meta['path_dir_base'] = self.path_dir_base
-        dict_meta['instance_label'] = self.instance_label
+        dict_meta['problem_label'] = self.problem_label
         dict_meta['filepath_save'] = self.filepath_save
         dict_meta['list_input'] = self.list_input
         dict_meta['list_output'] = self.list_output_rename
+        dict_meta['bootstrap'] = self.bootstrap
         dict_meta['bootstrap_size'] = self.bootstrap_size
         dict_meta['bootstrap_repeat'] = ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)]
         dict_meta['BBOB_func'] = self.BBOB_func
         dict_meta['BBOB_instance'] = ['ins_'+str(ins) for ins in self.BBOB_instance]
         dict_meta['AF_number'] = ['AF_'+str(AF_num+1) for AF_num in range(self.AF_number)]
-        dict_meta['ELA_instance'] = self.ELA_instance
+        dict_meta['ELA_problem'] = self.ELA_problem
         dict_meta['ELA_BBOB'] = self.ELA_BBOB
         dict_meta['ELA_AF'] = self.ELA_AF
+        dict_meta['np_ela'] = self.np_ela
+        dict_meta['os_system'] = self.os_system
                          
-        filename_meta_base = 'ELA_metadata.json'
+        filename_meta_base = 'CEOELA_metadata.json'
         filepath_meta = os.path.join(self.path_dir_base, filename_meta_base)
         with open(filepath_meta, "w") as outfile: 
             json.dump(dict_meta, outfile)
         # END WITH
         
         # execute R script
-        # Set R_HOME
-        os.environ['R_HOME'] = self.r_home
-        import rpy2.robjects as robjects
-        # Defining the R script and loading the instance in Python
-        r = robjects.r
-        r['source']('CEOELA_computeELA.R')
+        if (self.os_system=='windows'):
+            # Set R_HOME
+            os.environ['R_HOME'] = r"C:\ProgramData\Anaconda3\envs\rstudio\lib\R"
+            import rpy2.robjects as robjects
+            # Defining the R script and loading the instance in Python
+            r = robjects.r
+            r['source']('CEOELA_computeELA.R')
+        else:
+            import subprocess
+            subprocess.call("Rscript --version 4.0.5 CEOELA_computeELA.R", shell=True)
+        # END IF
         
         if (self.verbose):
             print('[CEOELA] Computation of ELA features done.')
@@ -549,58 +618,78 @@ class ELA_pipeline:
         # END IF
         
         # read ELA results
-        # crash original
-        if (self.ELA_instance):
-            filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_crash_original.xlsx')
-            dict_result_crash_orig_base = readFile2Dict(filepath, ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)], 
-                                                        list_sheet_type='select', header=0)
-            self.df_ELA_crash_original_base = dict2DF(dict_result_crash_orig_base)
-        
-        # crash re-scale
-        if (self.ELA_instance and self.ELA_BBOB):
-            filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_crash_rescale.xlsx')
-            dict_result_crash_rescale_base = readFile2Dict(filepath, ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)], 
-                                                           list_sheet_type='select', header=0)
-            self.df_ELA_crash_rescale_base = dict2DF(dict_result_crash_rescale_base)
-        
         # BBOB functions
         if (self.ELA_BBOB):
-            filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_BBOB.xlsx')
+            filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_BBOB.xlsx')
             dict_result_BBOB_base = readFile2Dict(filepath, ['ins_'+str(ins) for ins in self.BBOB_instance], 
                                                   list_sheet_type='select', header=0)
             self.df_ELA_BBOB_base = dict2DF(dict_result_BBOB_base)
         
-        # Artificial functions
-        if (self.ELA_AF):
-            dict_result_AF_base = {}
-            for bs in range(self.bootstrap_repeat):
-                sheetname = 'bs_' + str(bs+1)
-                filepath = os.path.join(self.filepath_save, 'featELA_' + self.instance_label + '_AF_' + sheetname + '.xlsx')
-                dict_result_AF_base[sheetname] = readFile2Dict(filepath, [sheetname], list_sheet_type='select', header=0)
-            # END FOR
-            self.df_ELA_AF_base = dict2DF(dict_result_AF_base)
+        if (self.bootstrap):
+            # crash original
+            if (self.ELA_problem):
+                filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_original.xlsx')
+                dict_result_crash_orig_base = readFile2Dict(filepath, ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)], 
+                                                            list_sheet_type='select', header=0)
+                self.df_ELA_crash_original_base = dict2DF(dict_result_crash_orig_base)
+            
+            # crash re-scale
+            if (self.ELA_problem and self.ELA_BBOB):
+                filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_rescale.xlsx')
+                dict_result_crash_rescale_base = readFile2Dict(filepath, ['bs_'+str(bs+1) for bs in range(self.bootstrap_repeat)], 
+                                                               list_sheet_type='select', header=0)
+                self.df_ELA_crash_rescale_base = dict2DF(dict_result_crash_rescale_base)
+            
+            # Artificial functions
+            # TODO: parallel computing
+            if (self.ELA_AF):
+                dict_result_AF_base = {}
+                for bs in range(self.bootstrap_repeat):
+                    sheetname = 'bs_' + str(bs+1)
+                    filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_AF_' + sheetname + '.xlsx')
+                    dict_result_AF_base[sheetname] = readFile2Dict(filepath, [sheetname], list_sheet_type='select', header=0)
+                # END FOR
+                self.df_ELA_AF_base = dict2DF(dict_result_AF_base)
+        else:
+            # crash original
+            if (self.ELA_problem):
+                filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_original.xlsx')
+                dict_result_crash_orig_base = readFile2Dict(filepath, ['full'], list_sheet_type='select', header=0)
+                self.df_ELA_crash_original_base = dict2DF(dict_result_crash_orig_base)
+            
+            # crash re-scale
+            if (self.ELA_problem and self.ELA_BBOB):
+                filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_rescale.xlsx')
+                dict_result_crash_rescale_base = readFile2Dict(filepath, ['full'], list_sheet_type='select', header=0)
+                self.df_ELA_crash_rescale_base = dict2DF(dict_result_crash_rescale_base)
+                
+            # Artificial functions
+            if (self.ELA_AF):
+                filepath = os.path.join(self.filepath_save, 'featELA_' + self.problem_label + '_AF.xlsx')
+                dict_result_AF_base = readFile2Dict(filepath, ['full'], list_sheet_type='select', header=0)
+                self.df_ELA_AF_base = dict2DF(dict_result_AF_base)
+        # END IF
         
         #%%
         # create linkage matrix
-        # TODO: check cluster_hl
         # crash re-scale with BBOB functions
-        if (self.ELA_instance and self.ELA_BBOB):
+        if (self.ELA_problem and self.ELA_BBOB):
             list_df = [self.df_ELA_crash_rescale_base, self.df_ELA_BBOB_base]
-            self.linkageMat_BBOB, self.dict_cluster_BBOB, self.dict_hl_BBOB, self.df_data_standard_BBOB, self.df_data_cluster_BBOB = create_linkageMat(list_df, 
-                                                                                                                                                       list_obj_hl=list_obj_hl, 
-                                                                                                                                                       list_obj_ignore=list_obj_ignore,
-                                                                                                                                                       corr_thres=corr_thres, 
-                                                                                                                                                       corr_ignore=corr_ignore, 
-                                                                                                                                                       verbose=self.verbose)
+            self.linkageMat_BBOB, self.df_data_standard_BBOB, self.df_data_cluster_BBOB = create_linkageMat(list_df, 
+                                                                                                            list_obj_hl=list_obj_hl, 
+                                                                                                            list_obj_ignore=list_obj_ignore,
+                                                                                                            corr_thres=corr_thres, 
+                                                                                                            corr_ignore=corr_ignore, 
+                                                                                                            verbose=self.verbose)
         # crash original with Artificial functions
-        if (self.ELA_instance and self.ELA_AF):
+        if (self.ELA_problem and self.ELA_AF):
             list_df = [self.df_ELA_crash_original_base, self.df_ELA_AF_base]
-            self.linkageMat_AF, self.dict_cluster_AF, self.dict_hl_AF, self.df_data_standard_AF, self.df_data_cluster_AF = create_linkageMat(list_df, 
-                                                                                                                                             list_obj_hl=list_obj_hl, 
-                                                                                                                                             list_obj_ignore=list_obj_ignore,
-                                                                                                                                             corr_thres=corr_thres, 
-                                                                                                                                             corr_ignore=corr_ignore, 
-                                                                                                                                             verbose=self.verbose)
+            self.linkageMat_AF, self.df_data_standard_AF, self.df_data_cluster_AF = create_linkageMat(list_df, 
+                                                                                                      list_obj_hl=list_obj_hl, 
+                                                                                                      list_obj_ignore=list_obj_ignore,
+                                                                                                      corr_thres=corr_thres, 
+                                                                                                      corr_ignore=corr_ignore, 
+                                                                                                      verbose=self.verbose)
         #%%
         if (self.verbose):
             print('[CEOELA] Processing of ELA features done.')
@@ -619,40 +708,48 @@ class ELA_pipeline:
     #%% 
     def CompareELA(self):
         # plot dendrogram for clustering
+        filepath_AF_func = os.path.join(self.filepath_save, self.problem_label+'_AF_func.xlsx')
+        
         # BBOB functions
-        if (self.ELA_instance and self.ELA_BBOB):
+        if (self.ELA_problem and self.ELA_BBOB):
+            # save similar BBOB in excel
+            self.dict_similarf_BBOB = get_similar_func(self.linkageMat_BBOB, self.df_data_standard_BBOB, self.list_output_rename)
+            write_similarF(self.filepath_save, self.dict_similarf_BBOB, self.problem_label, 'BBOB', filepath_AF_func)
+            
+            # plot dendrogram
             plot_dendrogram(self.linkageMat_BBOB, 
                             xlabel='', 
                             ylabel='Euclidean distance', 
                             rot_angle=90, label_ha='center', fontsize=8,
                             titel='', 
                             dir_out=self.filepath_save, 
-                            cfigname='plot_cluster_BBOB_' + self.instance_label, 
+                            cfigname='plot_cluster_BBOB_' + self.problem_label, 
                             figformat='.png', 
-                            figsize=(6,3), dpi=300, show=False, labels=list(self.df_data_standard_BBOB.index), truncate_mode=None, p=2)
+                            figsize=(6,3), 
+                            dpi=300, show=False, labels=list(self.df_data_standard_BBOB.index), truncate_mode=None, p=2)
             
         # Artificial functions
-        if (self.ELA_instance and self.ELA_AF):
+        if (self.ELA_problem and self.ELA_AF):
+            # save similar AF in excel
+            self.dict_similarf_AF = get_similar_func(self.linkageMat_AF, self.df_data_standard_AF, self.list_output_rename)
+            write_similarF(self.filepath_save, self.dict_similarf_AF, self.problem_label, 'AF', filepath_AF_func)
+            
+            # plot dendrogram
             plot_dendrogram(self.linkageMat_AF, 
                             xlabel='', 
                             ylabel='Euclidean distance', 
                             rot_angle=90, label_ha='center', fontsize=8,
                             titel='', 
                             dir_out=self.filepath_save, 
-                            cfigname='plot_cluster_AF_' + self.instance_label, 
+                            cfigname='plot_cluster_AF_' + self.problem_label, 
                             figformat='.png', 
-                            figsize=(140,3), dpi=300, show=False, labels=list(self.df_data_standard_AF.index), truncate_mode=None, p=2)
+                            figsize=(20+self.df_data_standard_AF.shape[0]*0.1,3), 
+                            dpi=300, show=False, labels=list(self.df_data_standard_AF.index), truncate_mode=None, p=2)
         if (self.verbose):
             print('[CEOELA] Comparison of ELA features done.')
         # END IF
-    # END DEF  
+    # END DEF
 # END CLASS            
-            
-            
-
-
-
-
 
 
 
