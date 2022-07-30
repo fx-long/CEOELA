@@ -583,8 +583,9 @@ def flat_linkageMat(row_clusters, labels, id_item):
     return clusters, list_clust
 # END FUNCTION
 
-def get_similar_func(linkage_matrix, df_standard, list_func):
+def get_similar_func(linkage_matrix, df_standard, list_func, metric='euclidean'):
     dict_func = {}
+    dict_dist = {}
     df_data = copy.deepcopy(df_standard)
     df_data.reset_index(drop=False, inplace=True)
     for func in list_func:
@@ -595,8 +596,20 @@ def get_similar_func(linkage_matrix, df_standard, list_func):
         for item in list_clust:
             list_label.append(df_data.iloc[item]['label'])
         dict_func[func] = list_label
+        
+        # pairwise distance
+        df_a = df_standard.loc[func]
+        list_dist = []
+        for label in list_label:
+            df_b = df_standard.loc[label]
+            if (metric == 'euclidean'):
+                dist = np.linalg.norm(df_a-df_b)
+                list_dist.append(dist)
+            else:
+                raise ValueError(f'{metric} is not defined.')
+        dict_dist[func] = list_dist
     # END FOR
-    return dict_func
+    return dict_func, dict_dist
 # END FUNCTION
 
 
@@ -752,14 +765,16 @@ def create_Rscript(filepath_base, filepath_new, os_system='windows'):
 ##################################
 
 #%%
-def write_similarF(filepath_save, dict_similarF, problem_label, type_func, filepath_AF_func):
+def write_similarF(filepath_save, dict_similarF, dict_dist, problem_label, type_func, filepath_AF_func):
     filename = 'similarF_' + problem_label + f'_{type_func}.xlsx'
     filepath_out = os.path.join(filepath_save, filename)
     
     if (type_func == 'BBOB'):
         with pd.ExcelWriter(filepath_out) as writer:
             for key in dict_similarF.keys():
-                df_temp = pd.DataFrame({f'similar {type_func}': dict_similarF[key]})
+                df_temp = pd.DataFrame({f'similar {type_func}': dict_similarF[key],
+                                        'dist': dict_dist[key]})
+                df_temp.sort_values(by=['dist'], axis=0, ascending=True, inplace=True)
                 df_temp.to_excel(writer, sheet_name=key, index=False)
     
     elif (type_func == 'AF'):
@@ -773,7 +788,9 @@ def write_similarF(filepath_save, dict_similarF, problem_label, type_func, filep
                     else:
                         list_func.append('')
                 df_temp = pd.DataFrame({f'similar {type_func}': dict_similarF[key],
+                                        'dist': dict_dist[key],
                                         'func': list_func})
+                df_temp.sort_values(by=['dist'], axis=0, ascending=True, inplace=True)
                 df_temp.to_excel(writer, sheet_name=key, index=False)
     else:
         raise ValueError(f'{type_func} is not defined.')

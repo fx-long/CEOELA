@@ -713,8 +713,8 @@ class CEOELA_pipeline:
         # BBOB functions
         if (self.ELA_problem and self.ELA_BBOB):
             # save similar BBOB in excel
-            self.dict_similarf_BBOB = get_similar_func(self.linkageMat_BBOB, self.df_data_standard_BBOB, self.list_output_rename)
-            write_similarF(self.filepath_save, self.dict_similarf_BBOB, self.problem_label, 'BBOB', filepath_AF_func)
+            self.dict_similarf_BBOB, self.dict_distBBOB = get_similar_func(self.linkageMat_BBOB, self.df_data_standard_BBOB, self.list_output_rename, metric='euclidean')
+            write_similarF(self.filepath_save, self.dict_similarf_BBOB, self.dict_distBBOB, self.problem_label, 'BBOB', filepath_AF_func)
             
             # plot dendrogram
             plot_dendrogram(self.linkageMat_BBOB, 
@@ -731,8 +731,8 @@ class CEOELA_pipeline:
         # Artificial functions
         if (self.ELA_problem and self.ELA_AF):
             # save similar AF in excel
-            self.dict_similarf_AF = get_similar_func(self.linkageMat_AF, self.df_data_standard_AF, self.list_output_rename)
-            write_similarF(self.filepath_save, self.dict_similarf_AF, self.problem_label, 'AF', filepath_AF_func)
+            self.dict_similarf_AF, self.dict_distAF = get_similar_func(self.linkageMat_AF, self.df_data_standard_AF, self.list_output_rename, metric='euclidean')
+            write_similarF(self.filepath_save, self.dict_similarf_AF, self.dict_distAF, self.problem_label, 'AF', filepath_AF_func)
             
             # plot dendrogram
             plot_dendrogram(self.linkageMat_AF, 
