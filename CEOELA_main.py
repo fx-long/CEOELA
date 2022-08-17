@@ -29,7 +29,6 @@ ceoela_pipeline = CEOELA_pipeline(r"C:\Users\Q521100\Desktop\Workspace_local\Aut
                                   AF_number = 2,
                                   AF_seed = 0,
                                   np_ela = 1,
-                                  os_system = 'windows',
                                   purge = True,
                                   verbose = True,
                                   )
