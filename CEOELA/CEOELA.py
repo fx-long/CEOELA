@@ -12,9 +12,9 @@ import random
 import math
 import json
 import shutil
+from sys import platform
 import pandas as pd
 import numpy as np
-from itertools import product
 
 from sklearn.utils import resample
 from .utils import (get_script_dir, data_rescaling, readFile2Dict, dict2DF, create_linkageMat, plot_dendrogram, create_Rscript, 
@@ -59,7 +59,6 @@ class CEOELA_pipeline:
                  AF_number: int = 1,
                  AF_seed: int = 0,
                  np_ela: int = 1,
-                 os_system: str = 'windows',
                  purge: bool = False,
                  verbose: bool = True,
                  ):
@@ -101,8 +100,6 @@ class CEOELA_pipeline:
             Random seed to initialize AF generator, by default seed 0.
         np_ela: int, optional
             Number of processor for multiprocessing of ELA computation, by default 1. (works only in Lunix)
-        os_system: str, optional
-            Operating system, either 'windows' or 'linux', by default windows.
         purge: bool, optional
             Remove previous result directory, by default False.
         verbose: bool, optional
@@ -134,7 +131,6 @@ class CEOELA_pipeline:
         # misc
         self.np_ela: int = np_ela
         self.path_dir_base = get_script_dir(follow_symlinks=True, directory='parent')
-        self.os_system: str = os_system
         self.verbose: bool = verbose
         
         #%%
@@ -215,11 +211,6 @@ class CEOELA_pipeline:
         if not (os.path.isdir(self.filepath_save)):
             os.makedirs(self.filepath_save)
         # END IF
-        
-        # check os system
-        if not ((self.os_system=='windows') or (self.os_system=='linux')):
-            raise ValueError(f'Operating system {self.os_system} is undefined. Use only \'windows\' or \'linux\'.')
-        # END IF
             
         # check boot-strap inputs
         if (self.bootstrap):
@@ -237,7 +228,7 @@ class CEOELA_pipeline:
         # END IF
         
         # check number of processor
-        if (self.os_system=='windows'):
+        if ('win' in platform):
             self.np_ela = 1
         if (self.np_ela < 1):
             raise ValueError('Number of processor must be at least 1.')
@@ -250,7 +241,7 @@ class CEOELA_pipeline:
             raise ValueError(f'R-script {filepath_base} is missing.')
         if (os.path.isfile(filepath_new)):
             os.remove(filepath_new)
-        create_Rscript(filepath_base, filepath_new, os_system=self.os_system)
+        create_Rscript(filepath_base, filepath_new, os_system=platform)
         if (self.verbose):
             print('[CEOELA] R-script is created.')
         # END IF
@@ -561,7 +552,6 @@ class CEOELA_pipeline:
         dict_meta['ELA_BBOB'] = self.ELA_BBOB
         dict_meta['ELA_AF'] = self.ELA_AF
         dict_meta['np_ela'] = self.np_ela
-        dict_meta['os_system'] = self.os_system
                          
         filename_meta_base = 'CEOELA_metadata.json'
         filepath_meta = os.path.join(self.path_dir_base, filename_meta_base)
@@ -570,7 +560,7 @@ class CEOELA_pipeline:
         # END WITH
         
         # execute R script
-        if (self.os_system=='windows'):
+        if ('win' in platform):
             # Set R_HOME
             os.environ['R_HOME'] = r"C:\ProgramData\Anaconda3\envs\rstudio\lib\R"
             import rpy2.robjects as robjects

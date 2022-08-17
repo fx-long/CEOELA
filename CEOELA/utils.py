@@ -730,15 +730,15 @@ def plot_dendrogram(linkage_matrix, xlabel='', ylabel='', rot_angle=None, label_
 ##################################
 
 #%%
-def create_Rscript(filepath_base, filepath_new, os_system='windows'):
+def create_Rscript(filepath_base, filepath_new, os_system='win'):
     # create temporary file
     fh, abs_path = mkstemp()
     with fdopen(fh,'w') as new_file:
         with open(filepath_base) as old_file:
-            if (os_system == 'windows'):
+            if ('win' in os_system):
                 new_file.write('\nenv_windows <- TRUE\n')
                 new_file.write('\npath_split <- "'"\\\\"'"\n')
-            elif (os_system == 'linux'):
+            elif ('linux' in os_system):
                 new_file.write('\n.libPaths(c("/proj/cae_muc/q521100/83_Miniconda/r4.0.5/library/", .libPaths()))\n')
                 new_file.write('\nenv_windows <- FALSE\n')
                 new_file.write('\npath_split <- "'"/"'"\n')

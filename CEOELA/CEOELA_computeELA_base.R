@@ -74,7 +74,6 @@ ELA_problem <- json_data$ELA_problem
 ELA_BBOB <- json_data$ELA_BBOB
 ELA_AF <- json_data$ELA_AF
 np_ela <- json_data$np_ela
-os_system <- json_data$os_system
 
 numCores <- detectCores()
 ncore <- as.integer(min(c(np_ela, numCores)))
