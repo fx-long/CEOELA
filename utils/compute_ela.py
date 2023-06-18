@@ -9,9 +9,7 @@ from .utils import dataCleaning
 
 
 #%%
-def compute_ela(X, y, lower_bound=-5.0, upper_bound=5.0, normalize_y=True):
-    if (normalize_y):
-        y = (max(y) - y) / (max(y)-min(y))
+def compute_ela(X, y, lower_bound=-5.0, upper_bound=5.0):
     # Calculate ELA features
     ela_meta = pflacco_ela.calculate_ela_meta(X, y)
     ela_distr = pflacco_ela.calculate_ela_distribution(X, y)
@@ -41,7 +39,7 @@ def compute_ela(X, y, lower_bound=-5.0, upper_bound=5.0, normalize_y=True):
 # END DEF
 
 #%%
-def bootstrap_ela(X, y, lower_bound=-5.0, upper_bound=5.0, normalize_y=True, bs_ratio=0.8, bs_repeat=2, bs_seed=42):
+def bootstrap_ela(X, y, lower_bound=-5.0, upper_bound=5.0, bs_ratio=0.8, bs_repeat=2, bs_seed=42):
     assert 0.0 < bs_ratio < 1.0
     assert bs_repeat > 0
     num_sample = int(math.ceil(len(X) * bs_ratio))
@@ -49,7 +47,7 @@ def bootstrap_ela(X, y, lower_bound=-5.0, upper_bound=5.0, normalize_y=True, bs_
     for i_bs in range(bs_repeat):
         i_bs_seed = i_bs + bs_seed
         X_, y_ = resample(X, y, replace=False, n_samples=num_sample, random_state=i_bs_seed, stratify=None)
-        ela_ = compute_ela(X_, y_, lower_bound=lower_bound, upper_bound=upper_bound, normalize_y=normalize_y)
+        ela_ = compute_ela(X_, y_, lower_bound=lower_bound, upper_bound=upper_bound)
         df_ela = pd.concat([df_ela, ela_], axis=0, ignore_index=True)
     return df_ela
 # END DEF

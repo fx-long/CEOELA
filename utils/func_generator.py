@@ -52,11 +52,11 @@ class func_generator:
                 continue
             
             # skip if objective values are invalid
-            if (np.isnan(y).any() or np.isinf(y).any() or np.var(y)<1e-10):
+            if (np.isnan(y).any() or np.isinf(y).any() or np.var(y)<1.0):
                 i_bad_y += 1
                 continue
             
-            df_f = pd.DataFrame.from_dict({'str_f': [str_f], 'y': [str(list(y))], 'label': f'rfg{len(self.df_func)+1}'})
+            df_f = pd.DataFrame.from_dict({'str_f': [str_f], 'y': [str(list(y))], 'label': [f'rfg{len(self.df_func)+1}']})
             self.df_func = pd.concat([self.df_func, df_f], axis=0, ignore_index=True)
         filepath = os.path.join(self.path_output, 'rfg_genf.csv')
         self.df_func.to_csv(filepath, index=False)

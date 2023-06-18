@@ -28,6 +28,7 @@ def setup():
                                    normalize_x = True,
                                    normalize_x_lower = [-5.0]*dim,
                                    normalize_x_upper = [5.0]*dim,
+                                   normalize_y = True,
                                    problem_label = 'example_bbob',
                                    path_output = '',
                                    bootstrap = True,

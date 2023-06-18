@@ -23,6 +23,7 @@ class ceoela_pipeline:
                  normalize_x: bool = True,
                  normalize_x_lower: list = [],
                  normalize_x_upper: list = [],
+                 normalize_y: bool = True,
                  problem_label: str = 'problem',
                  path_output: str = '',
                  bootstrap: bool = True,
@@ -45,6 +46,7 @@ class ceoela_pipeline:
         self.normalize_x: bool = normalize_x
         self.normalize_x_lower: list = normalize_x_lower
         self.normalize_x_upper: list = normalize_x_upper
+        self.normalize_y: bool = normalize_y
         self.problem_label: str = problem_label
         
         # bootstrapping
@@ -91,11 +93,11 @@ class ceoela_pipeline:
         self.X_normalize = copy.deepcopy(self.X_filter)
         if (self.normalize_x):
             for i_dv, dv in enumerate(self.X.keys()):
-                bound_min = float(self.lower_bound[i_dv])
-                bound_max = float(self.upper_bound[i_dv])
+                orig_min = float(self.lower_bound[i_dv])
+                orig_max = float(self.upper_bound[i_dv])
                 target_min = float(self.normalize_x_lower[i_dv])
                 target_max = float(self.normalize_x_upper[i_dv])
-                self.X_normalize[dv] = data_rescaling(self.X_normalize[dv], bound_min, bound_max, target_min, target_max)
+                self.X_normalize[dv] = data_rescaling(self.X_normalize[dv], orig_min, orig_max, target_min, target_max)
             if (self.verbose):
                 print('[CEOELA] Doe samples X are re-scaled.')
     # END DEF
@@ -105,9 +107,9 @@ class ceoela_pipeline:
         self.preprocess()
         X_ = np.array(self.X_normalize)
         dict_bs = {'bootstrap': self.bootstrap,
-                   'lower_bound': self.lower_bound,
-                   'upper_bound': self.upper_bound,
-                   'normalize_y': True,
+                   'lower_bound': self.normalize_x_lower,
+                   'upper_bound': self.normalize_x_upper,
+                   'normalize_y': self.normalize_y,
                    'bs_ratio': self.bs_ratio,
                    'bs_repeat': self.bs_repeat,
                    'bs_seed': self.bs_seed,
@@ -154,11 +156,13 @@ def computeELA(X_, y_, dict_bs, label=''):
     bs_seed = dict_bs['bs_seed']
     path_output = dict_bs['path_output']
     
+    if (normalize_y):
+        y_ = (y_-min(y_))/(max(y_)-min(y_))
     if (bootstrap):
-        ela_ = bootstrap_ela(X_, y_, lower_bound=lower_bound, upper_bound=upper_bound, normalize_y=normalize_y,
+        ela_ = bootstrap_ela(X_, y_, lower_bound=lower_bound, upper_bound=upper_bound,
                              bs_ratio=bs_ratio, bs_repeat=bs_repeat, bs_seed=bs_seed)
     else:
-        ela_ = compute_ela(X_, y_, lower_bound=lower_bound, upper_bound=upper_bound, normalize_y=normalize_y)
+        ela_ = compute_ela(X_, y_, lower_bound=lower_bound, upper_bound=upper_bound)
     filepath = os.path.join(path_output, f'ela_{label}.csv')
     ela_.to_csv(filepath, index=False)
     print(f'[CEOELA] Features {label} computed.')
