@@ -12,7 +12,11 @@ from .utils import dataCleaning
 def compute_ela(X, y, lower_bound=-5.0, upper_bound=5.0):
     # Calculate ELA features
     ela_meta = pflacco_ela.calculate_ela_meta(X, y)
-    ela_distr = pflacco_ela.calculate_ela_distribution(X, y)
+    try:
+        ela_distr = pflacco_ela.calculate_ela_distribution(X, y)
+    except Exception as e:
+        ela_distr = {}
+        print(e)
     ela_level = {}
     for ela_level_quantiles in [0.1, 0.25, 0.5]:
         try:
