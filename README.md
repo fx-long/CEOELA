@@ -67,8 +67,22 @@ if __name__ == '__main__':
  
 If our CEOELA pipeline is utlized in your research, please cite us as follows:
 
-```
 Fu Xing Long, Bas van Stein, Moritz Frenzel, Peter Krause, Markus Gitterle, and Thomas Bäck. 2024. Generating Cheap Representative Functions for Expensive Automotive Crashworthiness Optimization. ACM Trans. Evol. Learn. Optim. Just Accepted (February 2024). https://doi.org/10.1145/3646554
+
+```
+@article{10.1145/3646554,
+author = {Long, Fu Xing and van Stein, Bas and Frenzel, Moritz and Krause, Peter and Gitterle, Markus and B\"{a}ck, Thomas},
+title = {Generating Cheap Representative Functions for Expensive Automotive Crashworthiness Optimization},
+year = {2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+url = {https://doi.org/10.1145/3646554},
+doi = {10.1145/3646554},
+note = {Just Accepted},
+journal = {ACM Trans. Evol. Learn. Optim.},
+month = {feb},
+keywords = {automotive crashworthiness, black-box optimization, single-objective, exploratory landscape analysis, representative functions.}
+}
 ```
 
 ## Contact
