@@ -1,4 +1,3 @@
-
 import os
 import sys
 import copy
@@ -176,7 +175,7 @@ def dropFeatCorr(df_data, corr_thres=0.9, corr_method='pearson', mode='pair', ig
     df_data_corr.index.names = ['feat_name']
     
     # get upper triangle form of the correlation matrix
-    df_upper_tri = df_data_corr.where(np.triu(np.ones(df_data_corr.shape),k=1).astype(np.bool))
+    df_upper_tri = df_data_corr.where(np.triu(np.ones(df_data_corr.shape),k=1).astype(bool))
         
     if (mode == 'pair'):
         # remove feature with correlation exceeding threshold AND higher mean correlation wirh rest features
@@ -269,4 +268,26 @@ def dropFeatCorr(df_data, corr_thres=0.9, corr_method='pearson', mode='pair', ig
         return df_data_orig
     else:
         raise NotImplementedError
+# END DEF
+
+#%%
+def excel2doe(filepath):
+    kpi = pd.read_excel(filepath, sheet_name='KPI')
+    list_dv = list(kpi['input'].dropna())
+    list_dv_rename = list(kpi['input_rename'].dropna())
+    list_output = list(kpi['output'].dropna())
+    list_output_rename = list(kpi['output_rename'].dropna())
+    bounds = pd.read_excel(filepath, sheet_name='Bounds')
+    lower_bounds = list(bounds['lower'])
+    upper_bounds = list(bounds['upper'])
+    
+    doe_base = pd.read_excel(filepath, sheet_name='DOE_1')
+    doe = doe_base[list_dv + list_output].replace('EXPRESSION_ERROR', np.nan)
+    doe.dropna(axis=0, how='any', inplace=True)
+    doe.drop_duplicates(subset=list_dv, ignore_index=True, inplace=True)
+    for dv, dv_rename in zip(list_dv, list_dv_rename):
+        doe.rename(columns={dv: dv_rename}, inplace=True)
+    for output, output_rename in zip(list_output, list_output_rename):
+        doe.rename(columns={output: output_rename}, inplace=True)
+    return doe[list_dv_rename], doe[list_output_rename], lower_bounds, upper_bounds
 # END DEF

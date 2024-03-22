@@ -1,4 +1,3 @@
-
 import numpy as np
 from scipy.stats import qmc
 
@@ -100,7 +99,7 @@ class sampling:
         self.dimension = len(self.lower_bound)
         
     #%%
-    def __call__(self):
+    def create_doe(self):
         doe_base = self.dict_sampling[self.method](self.dimension, self.n, self.random_seed)
         doe_rescale = qmc.scale(doe_base, self.lower_bound, self.upper_bound, reverse=False)
         if (self.round_off):

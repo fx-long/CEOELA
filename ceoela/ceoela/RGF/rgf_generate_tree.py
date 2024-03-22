@@ -1,6 +1,6 @@
 
 import numpy as np
-from .rfg_node import Node
+from .rgf_node import Node
 
 
 
