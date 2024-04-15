@@ -20,7 +20,11 @@ def compute_ela(X, y, lower_bound=-5.0, upper_bound=5.0, normalize_y=True):
         print(e)
         ela_level = {}
     pca = pflacco_ela.calculate_pca(X, y)
-    limo = pflacco_ela.calculate_limo(X, y, lower_bound, upper_bound)
+    try:
+        limo = pflacco_ela.calculate_limo(X, y, lower_bound, upper_bound)
+    except Exception as e:
+        print(e)
+        limo = {}
     nbc = pflacco_ela.calculate_nbc(X, y)
     disp = pflacco_ela.calculate_dispersion(X, y)
     ic = pflacco_ela.calculate_information_content(X, y, seed=100)
