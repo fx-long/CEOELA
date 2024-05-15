@@ -15,7 +15,7 @@ openpyxl==3.1.2
 packaging==24.0
 pandas==2.0.3
 pflacco==1.2.2
-pillow==10.2.0
+pillow==10.3.0
 pyDOE==0.3.8
 pyparsing==3.1.2
 python-dateutil==2.9.0.post0
