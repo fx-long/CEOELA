@@ -10,23 +10,31 @@ from .utils import dataCleaning
 #%%
 def compute_ela(X, y, lower_bound=-5.0, upper_bound=5.0, normalize_y=True):
     if (normalize_y):
-        y = (max(y) - y) / (max(y)-min(y))
+        y = (y-min(y)) / (max(y)-min(y))
     # Calculate ELA features
     ela_meta = pflacco_ela.calculate_ela_meta(X, y)
     ela_distr = pflacco_ela.calculate_ela_distribution(X, y)
-    try:
-        ela_level = pflacco_ela.calculate_ela_level(X, y)
-    except Exception as e:
-        print(e)
-        ela_level = {}
+    ela_level = {}
+    for ela_level_quantiles in [0.1, 0.25, 0.5]:
+        try:
+            ela_level_ = pflacco_ela.calculate_ela_level(X, y, ela_level_quantiles=[ela_level_quantiles])
+            ela_level = {**ela_level_, **ela_level}
+        except Exception as e:
+            print(e)
     pca = pflacco_ela.calculate_pca(X, y)
     try:
         limo = pflacco_ela.calculate_limo(X, y, lower_bound, upper_bound)
     except Exception as e:
-        print(e)
+        # print(e)
         limo = {}
     nbc = pflacco_ela.calculate_nbc(X, y)
-    disp = pflacco_ela.calculate_dispersion(X, y)
+    disp = {}
+    for disp_quantiles in [0.02, 0.05, 0.1, 0.25]:
+        try:
+            disp_ = pflacco_ela.calculate_dispersion(X, y, disp_quantiles=[disp_quantiles])
+            disp = {**disp_, **disp}
+        except Exception as e:
+            print(e)
     ic = pflacco_ela.calculate_information_content(X, y, seed=100)
     ela_ = {**ela_meta, **ela_distr, **ela_level, **pca, **limo, **nbc, **disp, **ic}
     df_ela = pd.DataFrame([ela_])
